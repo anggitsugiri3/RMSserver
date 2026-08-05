@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>A'ini Retail ERP</title>
+
+<!-- ====== GANTI URL INI dengan Web App exec URL hasil deploy GAS Anda ====== -->
+<meta name="gas-exec-url" content="https://script.google.com/macros/s/GANTI_DENGAN_SCRIPT_ID/exec">
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2563EB">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<!-- iOS PWA support (iOS tidak baca manifest.json penuh) -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="A'ini ERP">
+
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#2563EB;font-family:-apple-system,Segoe UI,Roboto,Inter,sans-serif;}
+  #splash{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#2563EB;color:#fff;z-index:9999;transition:opacity .35s ease;}
+  #splash img{width:96px;height:96px;border-radius:22px;box-shadow:0 8px 24px rgba(0,0,0,.25);}
+  #splash h1{font-size:18px;font-weight:700;margin-top:16px;letter-spacing:.3px;}
+  #splash .dot{margin-top:22px;width:34px;height:34px;border:3px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin 0.9s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #app-frame{position:fixed;inset:0;width:100%;height:100%;border:0;background:#fff;}
+  #offline-banner{position:fixed;top:0;left:0;right:0;background:#DC2626;color:#fff;font-size:13px;text-align:center;padding:6px 8px;display:none;z-index:9998;}
+  #install-btn{position:fixed;bottom:18px;right:18px;background:#2563EB;color:#fff;border:0;border-radius:999px;padding:12px 18px;font-weight:600;font-size:14px;box-shadow:0 6px 18px rgba(0,0,0,.25);display:none;z-index:9998;}
+</style>
+</head>
+<body>
+
+  <div id="splash">
+    <img src="icons/icon-192.png" alt="A'ini Retail ERP">
+    <h1>A'ini Retail ERP</h1>
+    <div class="dot"></div>
+  </div>
+
+  <div id="offline-banner">Koneksi terputus - menunggu jaringan kembali...</div>
+  <button id="install-btn">Install Aplikasi</button>
+
+  <iframe id="app-frame" title="A'ini Retail ERP" allow="camera; clipboard-read; clipboard-write; usb; bluetooth" style="display:none;"></iframe>
+
+<script>
+  // Load isi app GAS di iframe, tanpa ubah apapun dari business logic aslinya.
+  var execUrl = document.querySelector('meta[name="gas-exec-url"]').content;
+  var frame = document.getElementById('app-frame');
+  var splash = document.getElementById('splash');
+
+  frame.src = execUrl;
+  frame.addEventListener('load', function () {
+    splash.style.opacity = '0';
+    setTimeout(function () {
+      splash.style.display = 'none';
+      frame.style.display = 'block';
+    }, 350);
+  });
+  // fallback: hilangkan splash walau load event lambat/tidak fire (cross-origin iframe)
+  setTimeout(function () {
+    if (splash.style.display !== 'none') {
+      splash.style.opacity = '0';
+      setTimeout(function () { splash.style.display = 'none'; frame.style.display = 'block'; }, 350);
+    }
+  }, 4000);
+
+  // Register service worker (hanya cache shell PWA ini, bukan data GAS).
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('service-worker.js');
+    });
+  }
+
+  // Online/offline indicator untuk shell.
+  var banner = document.getElementById('offline-banner');
+  function updateOnline() { banner.style.display = navigator.onLine ? 'none' : 'block'; }
+  window.addEventListener('online', updateOnline);
+  window.addEventListener('offline', updateOnline);
+  updateOnline();
+
+  // Tombol Install (Android/desktop Chrome/Edge).
+  var deferredPrompt;
+  var installBtn = document.getElementById('install-btn');
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.style.display = 'block';
+  });
+  installBtn.addEventListener('click', function () {
+    installBtn.style.display = 'none';
+    if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; }
+  });
+  window.addEventListener('appinstalled', function () { installBtn.style.display = 'none'; });
+</script>
+</body>
+</html>
