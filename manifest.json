@@ -2,7 +2,7 @@
   "name": "A'ini Retail ERP",
   "short_name": "A'ini ERP",
   "description": "Aplikasi POS & Retail ERP A'ini",
-  "start_url": "./index.html",
+  "start_url": "/",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
