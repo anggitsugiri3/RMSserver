@@ -93,5 +93,61 @@
   });
   window.addEventListener('appinstalled', function () { installBtn.style.display = 'none'; });
 </script>
+
+<!-- ====== PRINT BRIDGE: terusin request cetak dari iframe Apps Script ke PrintAgent lokal ======
+     Kenapa: kode app jalan di iframe lintas-origin (*.googleusercontent.com) -> Chrome blok iframe itu
+     panggil 127.0.0.1 ("Permission was denied ... loopback address space"). Halaman shell ini
+     (top-level) boleh, jadi iframe kirim permintaan lewat postMessage dan shell yang fetch.
+     Pasangan: PrintBridgeShim.html di project Apps Script. -->
+<script id="print-bridge">
+(function () {
+  'use strict';
+  var AGENT_ORIGIN = 'http://127.0.0.1:9123';
+  var ALLOWED_PATHS = ['/health', '/print/receipt'];
+  // Origin sandbox Apps Script, mis. https://n-xxxx-0lu-script.googleusercontent.com
+  var GAS_ORIGIN_RE = /^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/;
+
+  function reply(src, origin, payload) {
+    try { src.postMessage(payload, origin); } catch (e) { /* jendela sudah tutup */ }
+  }
+
+  window.addEventListener('message', function (ev) {
+    var d = ev.data;
+    if (!d || d.type !== 'aini-printagent-request' || typeof d.id !== 'string') return;
+    if (!(GAS_ORIGIN_RE.test(ev.origin) || ev.origin === 'https://script.google.com')) return;
+
+    function fail(message) {
+      reply(ev.source, ev.origin, { type: 'aini-printagent-response', id: d.id, phase: 'result', ok: false, error: message });
+    }
+
+    var u;
+    try { u = new URL(String(d.url)); } catch (e) { fail('URL tidak valid'); return; }
+    if (u.origin !== AGENT_ORIGIN || ALLOWED_PATHS.indexOf(u.pathname) === -1) {
+      fail('Alamat tidak diizinkan oleh bridge'); return;
+    }
+
+    // ack: tanda ke iframe bahwa bridge hidup (kalau tidak ada ack, iframe coba langsung).
+    reply(ev.source, ev.origin, { type: 'aini-printagent-response', id: d.id, phase: 'ack' });
+
+    var method = String(d.method || 'GET').toUpperCase();
+    var opts = { method: method, headers: {} };
+    if (d.headers && d.headers['content-type']) opts.headers['Content-Type'] = d.headers['content-type'];
+    if (method !== 'GET' && method !== 'HEAD' && typeof d.body === 'string') opts.body = d.body;
+
+    fetch(u.href, opts).then(function (res) {
+      return res.text().then(function (text) {
+        reply(ev.source, ev.origin, {
+          type: 'aini-printagent-response', id: d.id, phase: 'result', ok: true,
+          status: res.status, statusText: res.statusText || '',
+          contentType: res.headers.get('content-type') || '', body: text
+        });
+      });
+    }).catch(function (err) {
+      fail((err && err.message) || 'Failed to fetch');
+    });
+  });
+})();
+</script>
+
 </body>
 </html>
