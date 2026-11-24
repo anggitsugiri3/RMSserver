@@ -3,7 +3,7 @@
 // Konten app (POS, dsb) tetap 100% diambil live dari Google Apps Script exec URL
 // lewat iframe -> business logic GAS TIDAK disentuh/cache di sini.
 
-const CACHE_NAME = "aini-erp-shell-v1";
+const CACHE_NAME = "aini-erp-shell-v2"; // naik versi tiap index.html berubah, biar PWA terpasang ikut update
 const SHELL_FILES = [
   "./index.html",
   "./manifest.json",
@@ -37,6 +37,15 @@ self.addEventListener("fetch", (event) => {
   const isShellRequest = url.origin === self.location.origin;
 
   if (!isShellRequest) return; // biarkan browser handle request iframe GAS apa adanya
+
+  // Buka halaman (navigasi): ambil dari network dulu supaya update index.html sampai ke PWA
+  // terpasang; cache cuma cadangan kalau offline.
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match("./index.html"))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
